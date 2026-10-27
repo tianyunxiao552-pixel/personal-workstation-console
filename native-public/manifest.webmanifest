@@ -1,0 +1,1 @@
+{"name":"个人工作站","short_name":"工作站","description":"随时查看和管理自己电脑上的工作","start_url":"/app/","scope":"/app/","display":"standalone","background_color":"#f8fbff","theme_color":"#f8fbff","icons":[{"src":"/app/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}

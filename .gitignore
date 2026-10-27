@@ -1,0 +1,16 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+data/
+data-test/
+tmp/
+qa/
+results/
+work/
+desktop-bridge.json
+migration.json
+*.log
+.env
+.env.*
+!.env.example

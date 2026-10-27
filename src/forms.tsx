@@ -1,0 +1,27 @@
+import { useState, useEffect } from 'react';
+import { Plus, Play, CircleNotch } from '@phosphor-icons/react';
+import { KeyboardInput, KeyboardTextarea, useKeyboard } from './mobile';
+import type { Project, Run } from './client';
+import {DesktopChats} from './DesktopChats';
+
+export function NewTaskForm({projects,prefill,demo,onSubmit,onWorkflow,onToast}:{projects:Project[];prefill:Partial<Run>;demo:boolean;onSubmit:(v:any)=>Promise<void>;onWorkflow:(v:any)=>Promise<void>;onToast:(s:string)=>void}){
+  const [saved]=useState(()=>{try{return JSON.parse(localStorage.getItem(demo?'wc-task-draft-demo':'wc-task-draft-live')||'null');}catch{return null;}});
+  const initial=Object.keys(prefill).length?prefill:saved||{};
+  const [kind,setKind]=useState<string>(initial.kind==='workflow'?'workflow':initial.command||initial.kind==='command'?'command':'desktop');
+  const [projectId,setProjectId]=useState<string>(initial.projectId||projects[0]?.id||'workspace');
+  const [title,setTitle]=useState<string>(initial.title||''),[text,setText]=useState<string>(initial.text||initial.command||''),[busy,setBusy]=useState(false);const keyboard=useKeyboard();
+  useEffect(()=>{localStorage.setItem(demo?'wc-task-draft-demo':'wc-task-draft-live',JSON.stringify({kind,projectId,title,text}));},[kind,projectId,title,text,demo]);
+  return <div className="wc-form"><div className="wc-segment">{[['desktop','让 AI 来做'],['command','命令'],['workflow','工作流']].map(([v,n])=><button type="button" key={v} className={kind===v?'selected':''} onClick={()=>{keyboard.hide();setKind(v);}}>{n}</button>)}</div>
+    {kind==='desktop'?(demo?<p className="wc-inline-note">切换到我的电脑后，可以直接对原来的 Codex 会话说需求。</p>:<DesktopChats compact initialPrompt={prefill.prompt||''} projectDirectory={projects.find(p=>p.id===projectId)?.directory} onToast={onToast}/>):<form className="wc-form" onSubmit={async e=>{e.preventDefault();keyboard.hide();setBusy(true);try{if(kind==='workflow'){await onWorkflow({name:title||'自动化流程',projectId,steps:text.split('\n').filter(x=>x.trim()).map((command,i)=>({name:`步骤 ${i+1}`,command}))});}else await onSubmit({title:title||text.split('\n')[0].slice(0,40)||'新任务',projectId,command:text});localStorage.removeItem(demo?'wc-task-draft-demo':'wc-task-draft-live');}catch(e){onToast((e as Error).message);}finally{setBusy(false);}}}>
+      <label>项目<select value={projectId} onChange={e=>setProjectId(e.target.value)}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+      <label>任务名称<KeyboardInput value={title} onChange={e=>setTitle(e.target.value)} placeholder="给这项工作起个名字（可选）"/></label>
+      <label>{kind==='workflow'?'执行步骤（每行一条命令）':'在电脑上运行的命令'}<KeyboardTextarea aria-label="任务内容" rows={4} value={text} onChange={e=>setText(e.target.value)} placeholder={kind==='workflow'?'python prepare.py\npython train.py\npython evaluate.py':'例如：python train.py --epochs 100'}/></label>
+      <button className="wc-textlink" type="button" onClick={()=>{setTitle('验证电脑后台执行');setText('node -e "console.log(\'工作站连接成功\'); console.log(process.platform, process.version)"');}}>填入连接测试命令</button>
+      <button className="wc-primary" type="submit" disabled={busy||!text.trim()}>{busy?<CircleNotch className="spin" size={18}/>:<Play size={17}/>} {demo?'创建示例任务':'开始执行'}</button><p className="wc-muted">这里是高级执行工具。日常直接选择「让 AI 来做」即可。</p>
+    </form>}
+  </div>;
+}
+
+export function NewProjectForm({onSubmit,onToast}:{onSubmit:(v:any)=>Promise<void>;onToast:(s:string)=>void}){const [name,setName]=useState(''),[directory,setDirectory]=useState(''),[description,setDescription]=useState(''),[busy,setBusy]=useState(false);return <form className="wc-form" onSubmit={async e=>{e.preventDefault();setBusy(true);try{await onSubmit({name,directory,description});}catch(e){onToast((e as Error).message);}finally{setBusy(false);}}}><label>项目名称<KeyboardInput value={name} onChange={e=>setName(e.target.value)} placeholder="例如：目标检测实验"/></label><label>电脑上的目录<KeyboardInput value={directory} onChange={e=>setDirectory(e.target.value)} placeholder="留空自动创建，或填写已有目录"/></label><label>一句话描述<KeyboardTextarea rows={2} value={description} onChange={e=>setDescription(e.target.value)} placeholder="这个项目要完成什么？"/></label><button className="wc-primary" disabled={!name.trim()||busy} type="submit">{busy?<CircleNotch className="spin"/>:<Plus size={18}/>}连接项目</button></form>;}
+
+export function NewServiceForm({projects,onSubmit,onToast}:{projects:Project[];onSubmit:(v:any)=>Promise<void>;onToast:(s:string)=>void}){const [name,setName]=useState(''),[url,setUrl]=useState(''),[command,setCommand]=useState(''),[projectId,setProjectId]=useState(projects[0]?.id||'workspace');return <form className="wc-form" onSubmit={async e=>{e.preventDefault();try{await onSubmit({name,url,command,projectId});}catch(e){onToast((e as Error).message);}}}><label>服务名称<KeyboardInput value={name} onChange={e=>setName(e.target.value)} placeholder="例如：TensorBoard"/></label><label>访问地址<KeyboardInput value={url} onChange={e=>setUrl(e.target.value)} placeholder="http://127.0.0.1:6006"/></label><label>关联项目<select value={projectId} onChange={e=>setProjectId(e.target.value)}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>启动命令（可选）<KeyboardTextarea rows={2} value={command} onChange={e=>setCommand(e.target.value)} placeholder="留空则只提供访问和连接检测"/></label><button className="wc-primary" disabled={!name.trim()} type="submit">添加服务<Plus size={17}/></button></form>;}
